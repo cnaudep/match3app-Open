@@ -61,8 +61,6 @@
     };
 
     let loaded = 0;
-    let assetsReady = false;
-
     tileSrc.forEach((src, i) => {
       const img = new Image();
       img.src = src;
@@ -72,13 +70,14 @@
       };
       img.onerror = () => {
         console.error(`Failed to load image: ${src}`);
+        // Если загрузка не удалась — подставляем заглушку
+        img.src = "https://via.placeholder.com/64?text=NA";
       };
       tileImages.push(img);
     });
 
     function checkAllAssetsLoaded() {
       if (loaded === tileSrc.length && backgroundLoaded) {
-        assetsReady = true;
         initBoard();
         draw();
       }
@@ -94,17 +93,16 @@
     }
 
     function draw() {
-      if (!assetsReady) return;
+      if (!backgroundLoaded) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
           const tileIndex = board[y][x];
-          const tile = tileImages[tileIndex];
-          if (tile && tile.complete && tile.naturalWidth !== 0) {
-            ctx.drawImage(tile, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          if (tileIndex != null && tileImages[tileIndex] && tileImages[tileIndex].complete && tileImages[tileIndex].naturalWidth !== 0) {
+            ctx.drawImage(tileImages[tileIndex], x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
           }
-
           if (selectedTile && selectedTile.x === x && selectedTile.y === y) {
             ctx.strokeStyle = "white";
             ctx.lineWidth = 4;
@@ -112,12 +110,10 @@
           }
         }
       }
-
       scoreDisplay.innerText = `Score: ${score}`;
     }
 
     canvas.addEventListener("click", (e) => {
-      if (!assetsReady) return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
@@ -148,6 +144,7 @@
       if (matches.length > 0) {
         removeMatches(matches);
       } else {
+        // Нет совпадений — отменяем ход
         const tempBack = board[y1][x1];
         board[y1][x1] = board[y2][x2];
         board[y2][x2] = tempBack;
@@ -192,6 +189,7 @@
         score += 10;
       });
 
+      // Сдвиг фишек вниз
       for (let x = 0; x < COLS; x++) {
         let column = [];
         for (let y = 0; y < ROWS; y++) {
@@ -209,6 +207,7 @@
 
       draw();
 
+      // Проверить повторные совпадения после падения
       setTimeout(() => {
         const nextMatches = findMatches();
         if (nextMatches.length > 0) {
