@@ -22,6 +22,9 @@
     }
     canvas {
       border: 4px solid white;
+      /* Ensure canvas is displayed at its natural resolution */
+      width: 448px;
+      height: 640px;
     }
   </style>
 </head>
@@ -38,16 +41,6 @@
     const ROWS = 10;
     const TILE_SIZE = 64;
 
-    const tileImages = [];
-    const tileSrc = [
-      "Bronze.png",
-      "Bronze2.png",
-      "Gold.png",
-      "Gold2.png",
-      "Platina.png",
-      "Silver.png"
-    ];
-
     const board = [];
     let selectedTile = null;
     let animatingTiles = [];
@@ -56,182 +49,122 @@
 
     const background = new Image();
     background.src = "Background2.png";
-
-    let loaded = 0;
-    tileSrc.forEach((src, i) => {
-      const img = new Image();
-      img.src = src;
-      img.onload = () => {
-        loaded++;
-        if (loaded === tileSrc.length) {
-          initBoard();
-          requestAnimationFrame(gameLoop);
-        }
-      };
-      tileImages.push(img);
-    });
+    background.onload = () => requestAnimationFrame(gameLoop);
 
     function initBoard() {
       for (let y = 0; y < ROWS; y++) {
         board[y] = [];
         for (let x = 0; x < COLS; x++) {
-          board[y][x] = Math.floor(Math.random() * tileImages.length);
+          board[y][x] = Math.floor(Math.random() * 6);
         }
       }
     }
+    initBoard();
 
     function gameLoop() {
       draw();
-      if (isAnimating) {
-        updateAnimations();
-      }
+      if (isAnimating) updateAnimations();
       requestAnimationFrame(gameLoop);
     }
 
     function draw() {
-      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (background.complete) ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
-          const tile = board[y][x];
-          if (tile === null) continue;
-
-          const anim = animatingTiles.find(t => t.x === x && t.y === y);
-          const scale = anim ? 1 - anim.progress : 1;
-
-          const img = tileImages[tile];
-          const offset = (1 - scale) * TILE_SIZE / 2;
-
-          ctx.drawImage(
-            img,
-            x * TILE_SIZE + offset,
-            y * TILE_SIZE + offset,
-            TILE_SIZE * scale,
-            TILE_SIZE * scale
-          );
-
+          const idx = board[y][x];
+          if (idx != null) {
+            const img = document.getElementById(`tile${idx}`);
+            if (img && img.complete) ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
           if (selectedTile && selectedTile.x === x && selectedTile.y === y) {
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 4;
+            ctx.strokeStyle = "yellow";
+            ctx.lineWidth = 3;
             ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
           }
         }
       }
-    }
-
-    function updateAnimations() {
-      let allDone = true;
-      animatingTiles.forEach(tile => {
-        tile.progress += 0.05;
-        if (tile.progress < 1) allDone = false;
-      });
-
-      if (allDone) {
-        animatingTiles.forEach(({ x, y }) => {
-          board[y][x] = null;
-        });
-        score += animatingTiles.length * 10;
-        scoreDisplay.textContent = `Score: ${score}`;
-        animatingTiles = [];
-        dropTiles();
-        fillEmptyTiles();
-
-        const newMatches = checkMatches();
-        if (newMatches.length > 0) {
-          startAnimation(newMatches);
-        } else {
-          isAnimating = false;
-        }
-      }
+      scoreDisplay.textContent = `Score: ${score}`;
     }
 
     canvas.addEventListener("click", (e) => {
       if (isAnimating) return;
-
       const rect = canvas.getBoundingClientRect();
-      const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-      const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.floor((e.clientX - rect.left) * scaleX / TILE_SIZE);
+      const y = Math.floor((e.clientY - rect.top) * scaleY / TILE_SIZE);
+
+      console.log('Click coords raw:', e.clientX, e.clientY, '-> tile', x, y);
+      if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
 
       if (selectedTile) {
-        if (Math.abs(selectedTile.x - x) + Math.abs(selectedTile.y - y) === 1) {
+        const dx = Math.abs(selectedTile.x - x);
+        const dy = Math.abs(selectedTile.y - y);
+        if (dx + dy === 1) {
           swapTiles(selectedTile.x, selectedTile.y, x, y);
           const matches = checkMatches();
-          if (matches.length > 0) {
-            startAnimation(matches);
-          }
+          if (matches.length) startAnimation(matches);
           selectedTile = null;
         } else {
-          selectedTile = { x, y };
+          selectedTile = {x, y};
         }
       } else {
-        selectedTile = { x, y };
+        selectedTile = {x, y};
       }
     });
 
     function swapTiles(x1, y1, x2, y2) {
-      const temp = board[y1][x1];
-      board[y1][x1] = board[y2][x2];
-      board[y2][x2] = temp;
+      [board[y1][x1], board[y2][x2]] = [board[y2][x2], board[y1][x1]];
+      draw();
     }
-
+    
     function checkMatches() {
-      const matches = [];
-
-      for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS - 2; x++) {
-          const tile = board[y][x];
-          if (tile !== null && tile === board[y][x + 1] && tile === board[y][x + 2]) {
-            matches.push({ x, y });
-            matches.push({ x: x + 1, y });
-            matches.push({ x: x + 2, y });
-          }
-        }
+      const m = [];
+      const seen = new Set();
+      for (let y=0;y<ROWS;y++)for(let x=0;x<COLS-2;x++){
+        const a=board[y][x],b=board[y][x+1],c=board[y][x+2];
+        if(a!=null&&a===b&&b===c)for(let i=0;i<3;i++){const key=`${x+i},${y}`;if(!seen.has(key)){seen.add(key);m.push({x:x+i,y});}}
       }
-
-      for (let x = 0; x < COLS; x++) {
-        for (let y = 0; y < ROWS - 2; y++) {
-          const tile = board[y][x];
-          if (tile !== null && tile === board[y + 1][x] && tile === board[y + 2][x]) {
-            matches.push({ x, y });
-            matches.push({ x, y: y + 1 });
-            matches.push({ x, y: y + 2 });
-          }
-        }
+      for (let x=0;x<COLS;x++)for(let y=0;y<ROWS-2;y++){
+        const a=board[y][x],b=board[y+1][x],c=board[y+2][x];
+        if(a!=null&&a===b&&b===c)for(let i=0;i<3;i++){const key=`${x},${y+i}`;if(!seen.has(key)){seen.add(key);m.push({x,y:y+i});}}
       }
-
-      return matches;
+      return m;
     }
 
     function startAnimation(matches) {
-      animatingTiles = matches.map(({ x, y }) => ({ x, y, progress: 0 }));
+      animatingTiles = matches.map(p=>({...p,progress:0}));
       isAnimating = true;
     }
 
-    function dropTiles() {
-      for (let x = 0; x < COLS; x++) {
-        for (let y = ROWS - 1; y >= 0; y--) {
-          if (board[y][x] === null) {
-            for (let k = y - 1; k >= 0; k--) {
-              if (board[k][x] !== null) {
-                board[y][x] = board[k][x];
-                board[k][x] = null;
-                break;
-              }
-            }
-          }
-        }
+    function updateAnimations() {
+      let done=true;
+      animatingTiles.forEach(t=>{
+        t.progress+=0.1;
+        if(t.progress<1) done=false;
+      });
+      if(done){
+        animatingTiles.forEach(({x,y})=>board[y][x]=null);
+        score+=animatingTiles.length*10;
+        animatingTiles=[];
+        dropTiles();fillEmpty();
+        const nm=checkMatches();
+        if(nm.length) startAnimation(nm); else isAnimating=false;
       }
     }
 
-    function fillEmptyTiles() {
-      for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-          if (board[y][x] === null) {
-            board[y][x] = Math.floor(Math.random() * tileImages.length);
-          }
-        }
-      }
-    }
+    function dropTiles(){for(let x=0;x<COLS;x++)for(let y=ROWS-1;y>=0;y--){if(board[y][x]==null)for(let k=y-1;k>=0;k--)if(board[k][x]!=null){board[y][x]=board[k][x];board[k][x]=null;break;}}}
+    function fillEmpty(){for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(board[y][x]==null)board[y][x]=Math.floor(Math.random()*6);}
   </script>
+
+  <!-- Preload tile images with correct ids -->
+  <img id="tile0" src="Bronze.png" style="display:none" />
+  <img id="tile1" src="Bronze2.png" style="display:none" />
+  <img id="tile2" src="Gold.png" style="display:none" />
+  <img id="tile3" src="Gold2.png" style="display:none" />
+  <img id="tile4" src="Platina.png" style="display:none" />
+  <img id="tile5" src="Silver.png" style="display:none" />
 </body>
 </html>
