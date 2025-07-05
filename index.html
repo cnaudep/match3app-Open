@@ -1,0 +1,238 @@
+index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Match-3 Game</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      color: white;
+      font-family: sans-serif;
+    }
+    #score {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    canvas {
+      border: 4px solid white;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <canvas id="gameCanvas" width="448" height="640"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreDisplay = document.getElementById("score");
+
+    const COLS = 7;
+    const ROWS = 10;
+    const TILE_SIZE = 64;
+
+    const tileImages = [];
+    const tileSrc = [
+      "Bronze.png",
+      "Bronze2.png",
+      "Gold.png",
+      "Gold2.png",
+      "Platina.png",
+      "Silver.png"
+    ];
+
+    const board = [];
+    let selectedTile = null;
+    let animatingTiles = [];
+    let isAnimating = false;
+    let score = 0;
+
+    const background = new Image();
+    background.src = "Background2.png";
+
+    let loaded = 0;
+    tileSrc.forEach((src, i) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => {
+        loaded++;
+        if (loaded === tileSrc.length) {
+          initBoard();
+          requestAnimationFrame(gameLoop);
+        }
+      };
+      tileImages.push(img);
+    });
+
+    function initBoard() {
+      for (let y = 0; y < ROWS; y++) {
+        board[y] = [];
+        for (let x = 0; x < COLS; x++) {
+          board[y][x] = Math.floor(Math.random() * tileImages.length);
+        }
+      }
+    }
+
+    function gameLoop() {
+      draw();
+      if (isAnimating) {
+        updateAnimations();
+      }
+      requestAnimationFrame(gameLoop);
+    }
+
+    function draw() {
+      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const tile = board[y][x];
+          if (tile === null) continue;
+
+          const anim = animatingTiles.find(t => t.x === x && t.y === y);
+          const scale = anim ? 1 - anim.progress : 1;
+
+          const img = tileImages[tile];
+          const offset = (1 - scale) * TILE_SIZE / 2;
+
+          ctx.drawImage(
+            img,
+            x * TILE_SIZE + offset,
+            y * TILE_SIZE + offset,
+            TILE_SIZE * scale,
+            TILE_SIZE * scale
+          );
+
+          if (selectedTile && selectedTile.x === x && selectedTile.y === y) {
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 4;
+            ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+    }
+
+    function updateAnimations() {
+      let allDone = true;
+      animatingTiles.forEach(tile => {
+        tile.progress += 0.05;
+        if (tile.progress < 1) allDone = false;
+      });
+
+      if (allDone) {
+        animatingTiles.forEach(({ x, y }) => {
+          board[y][x] = null;
+        });
+        score += animatingTiles.length * 10;
+        scoreDisplay.textContent = `Score: ${score}`;
+        animatingTiles = [];
+        dropTiles();
+        fillEmptyTiles();
+
+        const newMatches = checkMatches();
+        if (newMatches.length > 0) {
+          startAnimation(newMatches);
+        } else {
+          isAnimating = false;
+        }
+      }
+    }
+
+    canvas.addEventListener("click", (e) => {
+      if (isAnimating) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+      const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+
+      if (selectedTile) {
+        if (Math.abs(selectedTile.x - x) + Math.abs(selectedTile.y - y) === 1) {
+          swapTiles(selectedTile.x, selectedTile.y, x, y);
+          const matches = checkMatches();
+          if (matches.length > 0) {
+            startAnimation(matches);
+          }
+          selectedTile = null;
+        } else {
+          selectedTile = { x, y };
+        }
+      } else {
+        selectedTile = { x, y };
+      }
+    });
+
+    function swapTiles(x1, y1, x2, y2) {
+      const temp = board[y1][x1];
+      board[y1][x1] = board[y2][x2];
+      board[y2][x2] = temp;
+    }
+
+    function checkMatches() {
+      const matches = [];
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS - 2; x++) {
+          const tile = board[y][x];
+          if (tile !== null && tile === board[y][x + 1] && tile === board[y][x + 2]) {
+            matches.push({ x, y });
+            matches.push({ x: x + 1, y });
+            matches.push({ x: x + 2, y });
+          }
+        }
+      }
+
+      for (let x = 0; x < COLS; x++) {
+        for (let y = 0; y < ROWS - 2; y++) {
+          const tile = board[y][x];
+          if (tile !== null && tile === board[y + 1][x] && tile === board[y + 2][x]) {
+            matches.push({ x, y });
+            matches.push({ x, y: y + 1 });
+            matches.push({ x, y: y + 2 });
+          }
+        }
+      }
+
+      return matches;
+    }
+
+    function startAnimation(matches) {
+      animatingTiles = matches.map(({ x, y }) => ({ x, y, progress: 0 }));
+      isAnimating = true;
+    }
+
+    function dropTiles() {
+      for (let x = 0; x < COLS; x++) {
+        for (let y = ROWS - 1; y >= 0; y--) {
+          if (board[y][x] === null) {
+            for (let k = y - 1; k >= 0; k--) {
+              if (board[k][x] !== null) {
+                board[y][x] = board[k][x];
+                board[k][x] = null;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function fillEmptyTiles() {
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (board[y][x] === null) {
+            board[y][x] = Math.floor(Math.random() * tileImages.length);
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>
