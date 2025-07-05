@@ -50,15 +50,12 @@
 
     const board = [];
     let selectedTile = null;
+    let animatingTiles = [];
+    let isAnimating = false;
     let score = 0;
 
     const background = new Image();
     background.src = "Background2.png";
-    let backgroundLoaded = false;
-    background.onload = () => {
-      backgroundLoaded = true;
-      checkAllAssetsLoaded();
-    };
 
     let loaded = 0;
     tileSrc.forEach((src, i) => {
@@ -66,22 +63,13 @@
       img.src = src;
       img.onload = () => {
         loaded++;
-        checkAllAssetsLoaded();
-      };
-      img.onerror = () => {
-        console.error(`Failed to load image: ${src}`);
-        // Если загрузка не удалась — подставляем заглушку
-        img.src = "https://via.placeholder.com/64?text=NA";
+        if (loaded === tileSrc.length) {
+          initBoard();
+          requestAnimationFrame(gameLoop);
+        }
       };
       tileImages.push(img);
     });
-
-    function checkAllAssetsLoaded() {
-      if (loaded === tileSrc.length && backgroundLoaded) {
-        initBoard();
-        draw();
-      }
-    }
 
     function initBoard() {
       for (let y = 0; y < ROWS; y++) {
@@ -92,17 +80,36 @@
       }
     }
 
+    function gameLoop() {
+      draw();
+      if (isAnimating) {
+        updateAnimations();
+      }
+      requestAnimationFrame(gameLoop);
+    }
+
     function draw() {
-      if (!backgroundLoaded) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
-          const tileIndex = board[y][x];
-          if (tileIndex != null && tileImages[tileIndex] && tileImages[tileIndex].complete && tileImages[tileIndex].naturalWidth !== 0) {
-            ctx.drawImage(tileImages[tileIndex], x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-          }
+          const tile = board[y][x];
+          if (tile === null) continue;
+
+          const anim = animatingTiles.find(t => t.x === x && t.y === y);
+          const scale = anim ? 1 - anim.progress : 1;
+
+          const img = tileImages[tile];
+          const offset = (1 - scale) * TILE_SIZE / 2;
+
+          ctx.drawImage(
+            img,
+            x * TILE_SIZE + offset,
+            y * TILE_SIZE + offset,
+            TILE_SIZE * scale,
+            TILE_SIZE * scale
+          );
+
           if (selectedTile && selectedTile.x === x && selectedTile.y === y) {
             ctx.strokeStyle = "white";
             ctx.lineWidth = 4;
@@ -110,21 +117,48 @@
           }
         }
       }
-      scoreDisplay.innerText = `Score: ${score}`;
+    }
+
+    function updateAnimations() {
+      let allDone = true;
+      animatingTiles.forEach(tile => {
+        tile.progress += 0.05;
+        if (tile.progress < 1) allDone = false;
+      });
+
+      if (allDone) {
+        animatingTiles.forEach(({ x, y }) => {
+          board[y][x] = null;
+        });
+        score += animatingTiles.length * 10;
+        scoreDisplay.textContent = `Score: ${score}`;
+        animatingTiles = [];
+        dropTiles();
+        fillEmptyTiles();
+
+        const newMatches = checkMatches();
+        if (newMatches.length > 0) {
+          startAnimation(newMatches);
+        } else {
+          isAnimating = false;
+        }
+      }
     }
 
     canvas.addEventListener("click", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = Math.floor((e.clientX - rect.left) * scaleX / TILE_SIZE);
-      const y = Math.floor((e.clientY - rect.top) * scaleY / TILE_SIZE);
+      if (isAnimating) return;
 
-      if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+      const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
 
       if (selectedTile) {
         if (Math.abs(selectedTile.x - x) + Math.abs(selectedTile.y - y) === 1) {
           swapTiles(selectedTile.x, selectedTile.y, x, y);
+          const matches = checkMatches();
+          if (matches.length > 0) {
+            startAnimation(matches);
+          }
           selectedTile = null;
         } else {
           selectedTile = { x, y };
@@ -132,34 +166,21 @@
       } else {
         selectedTile = { x, y };
       }
-      draw();
     });
 
     function swapTiles(x1, y1, x2, y2) {
       const temp = board[y1][x1];
       board[y1][x1] = board[y2][x2];
       board[y2][x2] = temp;
-
-      const matches = findMatches();
-      if (matches.length > 0) {
-        removeMatches(matches);
-      } else {
-        // Нет совпадений — отменяем ход
-        const tempBack = board[y1][x1];
-        board[y1][x1] = board[y2][x2];
-        board[y2][x2] = tempBack;
-      }
     }
 
-    function findMatches() {
+    function checkMatches() {
       const matches = [];
 
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS - 2; x++) {
-          const a = board[y][x];
-          const b = board[y][x + 1];
-          const c = board[y][x + 2];
-          if (a != null && a === b && b === c) {
+          const tile = board[y][x];
+          if (tile !== null && tile === board[y][x + 1] && tile === board[y][x + 2]) {
             matches.push({ x, y });
             matches.push({ x: x + 1, y });
             matches.push({ x: x + 2, y });
@@ -169,10 +190,8 @@
 
       for (let x = 0; x < COLS; x++) {
         for (let y = 0; y < ROWS - 2; y++) {
-          const a = board[y][x];
-          const b = board[y + 1][x];
-          const c = board[y + 2][x];
-          if (a != null && a === b && b === c) {
+          const tile = board[y][x];
+          if (tile !== null && tile === board[y + 1][x] && tile === board[y + 2][x]) {
             matches.push({ x, y });
             matches.push({ x, y: y + 1 });
             matches.push({ x, y: y + 2 });
@@ -183,37 +202,35 @@
       return matches;
     }
 
-    function removeMatches(matches) {
-      matches.forEach(({ x, y }) => {
-        if (board[y]) board[y][x] = null;
-        score += 10;
-      });
+    function startAnimation(matches) {
+      animatingTiles = matches.map(({ x, y }) => ({ x, y, progress: 0 }));
+      isAnimating = true;
+    }
 
-      // Сдвиг фишек вниз
+    function dropTiles() {
       for (let x = 0; x < COLS; x++) {
-        let column = [];
-        for (let y = 0; y < ROWS; y++) {
-          if (board[y][x] !== null && board[y][x] !== undefined) {
-            column.push(board[y][x]);
+        for (let y = ROWS - 1; y >= 0; y--) {
+          if (board[y][x] === null) {
+            for (let k = y - 1; k >= 0; k--) {
+              if (board[k][x] !== null) {
+                board[y][x] = board[k][x];
+                board[k][x] = null;
+                break;
+              }
+            }
           }
         }
-        while (column.length < ROWS) {
-          column.unshift(Math.floor(Math.random() * tileImages.length));
-        }
-        for (let y = 0; y < ROWS; y++) {
-          board[y][x] = column[y];
+      }
+    }
+
+    function fillEmptyTiles() {
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (board[y][x] === null) {
+            board[y][x] = Math.floor(Math.random() * tileImages.length);
+          }
         }
       }
-
-      draw();
-
-      // Проверить повторные совпадения после падения
-      setTimeout(() => {
-        const nextMatches = findMatches();
-        if (nextMatches.length > 0) {
-          removeMatches(nextMatches);
-        }
-      }, 200);
     }
   </script>
 </body>
