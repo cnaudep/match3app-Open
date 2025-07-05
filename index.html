@@ -1,18 +1,48 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Match-3 Game</title>
   <style>
-    body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; color: white; font-family: sans-serif; }
-    #menu { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 10; }
-    #menu button { font-size: 24px; padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; background: #fff; color: #000; }
-    #score, #moves { font-size: 24px; margin: 5px; }
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      color: white;
+      font-family: sans-serif;
+    }
+    /* Меню */
+    #menu, #endScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 10;
+    }
+    #menu button, #endScreen button {
+      font-size: 24px;
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background: #fff;
+      color: #000;
+      margin-top: 20px;
+    }
+    #score, #moves {
+      font-size: 24px; margin: 5px;
+    }
     canvas { border: 4px solid white; }
     #preloadImgs { display: none; }
-    #gameOver { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; flex-direction: column; }
-    #gameOver button { font-size: 20px; padding: 8px 16px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -22,20 +52,19 @@
     <button id="startBtn">Старт</button>
   </div>
 
-  <!-- Панель состояния -->
-  <div id="score" style="display:none;">Счёт: 0</div>
-  <div id="moves" style="display:none;">Ходов осталось: 20</div>
-
-  <!-- Игровое поле -->
-  <canvas id="gameCanvas" width="448" height="640"></canvas>
-
-  <!-- Game Over -->
-  <div id="gameOver">
-    <h2>Игра окончена!</h2>
+  <!-- Экран конца игры -->
+  <div id="endScreen" style="display:none;">
+    <h2>Игра окончена</h2>
+    <div id="finalScore">Ваш счёт: 0</div>
     <button id="restartBtn">Начать заново</button>
   </div>
 
-  <!-- Предзагрузка изображений -->
+  <!-- HUD -->
+  <div id="score" style="display:none;">Счёт: 0</div>
+  <div id="moves" style="display:none;">Ходов осталось: 20</div>
+  <canvas id="gameCanvas" width="448" height="640"></canvas>
+
+  <!-- Preload images -->
   <div id="preloadImgs">
     <img id="tile0" src="Bronze.png">
     <img id="tile1" src="Bronze2.png">
@@ -48,25 +77,26 @@
 
   <script>
   document.addEventListener("DOMContentLoaded", () => {
-    const menu      = document.getElementById('menu');
-    const startBtn  = document.getElementById('startBtn');
-    const scoreEl   = document.getElementById("score");
-    const movesEl   = document.getElementById("moves");
-    const canvas    = document.getElementById("gameCanvas");
-    const ctx       = canvas.getContext("2d");
-    const gameOver  = document.getElementById('gameOver');
-    const restartBtn= document.getElementById('restartBtn');
+    const menu       = document.getElementById('menu');
+    const startBtn   = document.getElementById('startBtn');
+    const endScreen  = document.getElementById('endScreen');
+    const restartBtn = document.getElementById('restartBtn');
+    const finalScore = document.getElementById('finalScore');
+    const scoreEl    = document.getElementById("score");
+    const movesEl    = document.getElementById("moves");
+    const canvas     = document.getElementById("gameCanvas");
+    const ctx        = canvas.getContext("2d");
+
     const COLS = 7, ROWS = 10, TILE = 64;
     let board = [], selected = null, score = 0, moves = 20;
 
-    // Загрузка изображений из DOM
+    // preload images
     const tileImages = [];
     for (let i = 0; i < 6; i++) {
       tileImages.push(document.getElementById(`tile${i}`));
     }
     const bgImage = document.getElementById('bg');
 
-    // Инициализация доски
     function initBoard() {
       board = [];
       for (let y = 0; y < ROWS; y++) {
@@ -75,13 +105,13 @@
           board[y][x] = Math.floor(Math.random() * tileImages.length);
         }
       }
-      score = 0; moves = 20;
+      score = 0;
+      moves = 20;
       scoreEl.textContent = `Счёт: ${score}`;
       movesEl.textContent = `Ходов осталось: ${moves}`;
       draw();
     }
 
-    // Отрисовка сцены
     function draw() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
@@ -90,15 +120,16 @@
           const idx = board[y][x];
           if (idx == null) continue;
           ctx.drawImage(tileImages[idx], x*TILE, y*TILE, TILE, TILE);
-          if (selected && selected.x === x && selected.y === y) {
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+          if (selected && selected.x===x && selected.y===y) {
+            ctx.strokeStyle='#fff'; ctx.lineWidth=4;
             ctx.strokeRect(x*TILE, y*TILE, TILE, TILE);
           }
         }
       }
+      scoreEl.textContent = `Счёт: ${score}`;
+      movesEl.textContent = `Ходов осталось: ${moves}`;
     }
 
-    // Обработчик клика по плитке
     canvas.addEventListener('click', e => {
       if (moves <= 0) return;
       const rect = canvas.getBoundingClientRect();
@@ -106,86 +137,78 @@
       const y = Math.floor((e.clientY-rect.top)/TILE);
       if (x<0||x>=COLS||y<0||y>=ROWS) return;
       if (selected) {
-        const dx = Math.abs(selected.x-x), dy = Math.abs(selected.y-y);
+        const dx=Math.abs(selected.x-x), dy=Math.abs(selected.y-y);
         if (dx+dy===1) {
-          swap(selected.x, selected.y, x, y);
+          swap(selected.x,selected.y,x,y);
           const m = findMatches();
           if (m.length) {
             removeMatches(m);
-            moves--; movesEl.textContent = `Ходов осталось: ${moves}`;
-            if (moves === 0) endGame();
+            moves--; // тратим ход только при успешном матче
           } else {
-            swap(selected.x, selected.y, x, y);
+            swap(selected.x,selected.y,x,y); // откат
           }
-          selected = null;
-        } else selected = {x,y};
-      } else selected = {x,y};
+          selected=null;
+          if (moves===0) endGame();
+        } else selected={x,y};
+      } else selected={x,y};
       draw();
     });
 
     function swap(x1,y1,x2,y2) {
-      [board[y1][x1], board[y2][x2]] = [board[y2][x2], board[y1][x1]];
+      [board[y1][x1],board[y2][x2]]=[board[y2][x2],board[y1][x1]];
     }
 
     function findMatches() {
-      const set = new Set();
-      // горизонтали
-      for (let y=0; y<ROWS; y++)
-        for (let x=0; x<COLS-2; x++) {
-          const t = board[y][x];
-          if (t!=null && t===board[y][x+1] && t===board[y][x+2])
-            [[x,y],[x+1,y],[x+2,y]].forEach(p=>set.add(JSON.stringify(p)));
-        }
-      // вертикали
-      for (let x=0; x<COLS; x++)
-        for (let y=0; y<ROWS-2; y++) {
-          const t = board[y][x];
-          if (t!=null && t===board[y+1][x] && t===board[y+2][x])
-            [[x,y],[x,y+1],[x,y+2]].forEach(p=>set.add(JSON.stringify(p)));
-        }
+      const set=new Set();
+      for(let y=0;y<ROWS;y++) for(let x=0;x<COLS-2;x++){
+        const t=board[y][x];
+        if(t!=null&&t===board[y][x+1]&&t===board[y][x+2])
+          [[x,y],[x+1,y],[x+2,y]].forEach(p=>set.add(JSON.stringify(p)));
+      }
+      for(let x=0;x<COLS;x++) for(let y=0;y<ROWS-2;y++){
+        const t=board[y][x];
+        if(t!=null&&t===board[y+1][x]&&t===board[y+2][x])
+          [[x,y],[x,y+1],[x,y+2]].forEach(p=>set.add(JSON.stringify(p)));
+      }
       return Array.from(set).map(JSON.parse);
     }
 
     function removeMatches(matches) {
-      matches.forEach(([x,y]) => { board[y][x] = null; score += 10; });
-      collapse(); refill();
-      scoreEl.textContent = `Счёт: ${score}`;
-      draw();
-      setTimeout(() => {
-        const nxt = findMatches();
-        if (nxt.length) removeMatches(nxt);
-      }, 200);
+      matches.forEach(([x,y])=>{board[y][x]=null; score+=10;});
+      collapse(); refill(); draw();
+      setTimeout(()=>{
+        const nxt=findMatches(); if(nxt.length) removeMatches(nxt);
+      },200);
     }
 
-    function collapse() {
-      for (let x=0; x<COLS; x++) {
-        const col = board.map(r=>r[x]).filter(v=>v!=null);
-        while (col.length<ROWS) col.unshift(Math.floor(Math.random()*tileImages.length));
-        for (let y=0; y<ROWS; y++) board[y][x]=col[y];
+    function collapse(){
+      for(let x=0;x<COLS;x++){
+        const col=board.map(r=>r[x]).filter(v=>v!=null);
+        while(col.length<ROWS) col.unshift(Math.floor(Math.random()*tileImages.length));
+        col.forEach((v,y)=>board[y][x]=v);
       }
     }
 
-    function refill() {
-      for (let y=0; y<ROWS; y++)
-        for (let x=0; x<COLS; x++)
-          if (board[y][x]== null) board[y][x]=Math.floor(Math.random()*tileImages.length);
+    function refill(){
+      for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(board[y][x]==null)
+        board[y][x]=Math.floor(Math.random()*tileImages.length);
     }
 
-    function endGame() {
-      gameOver.style.display = 'flex';
+    function endGame(){
+      finalScore.textContent = `Ваш счёт: ${score}`;
+      endScreen.style.display='flex';
     }
 
-    restartBtn.addEventListener('click', () => {
-      gameOver.style.display = 'none';
+    startBtn.addEventListener('click',()=>{
+      menu.style.display='none';
+      scoreEl.style.display='block';
+      movesEl.style.display='block';
       initBoard();
-      draw();
     });
 
-    startBtn.addEventListener('click', () => {
-      menu.style.display   = 'none';
-      scoreEl.style.display= 'block';
-      movesEl.style.display= 'block';
-      initBoard();
+    restartBtn.addEventListener('click',()=>{
+      endScreen.style.display='none';
+      menu.style.display='flex';
     });
   });
   </script>
