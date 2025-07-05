@@ -16,14 +16,8 @@
       color: white;
       font-family: sans-serif;
     }
-    #score {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-    canvas {
-      border: 4px solid white;
-    }
-    /* Скрытые теги прелоада */
+    #score { font-size: 24px; margin-bottom: 10px; }
+    canvas  { border: 4px solid white; }
     #preloadImgs { display: none; }
   </style>
 </head>
@@ -31,7 +25,7 @@
   <div id="score">Score: 0</div>
   <canvas id="gameCanvas" width="448" height="640"></canvas>
 
-  <!-- Предзагрузка картинок -->
+  <!-- preloaded images -->
   <div id="preloadImgs">
     <img id="tile0" src="Bronze.png">
     <img id="tile1" src="Bronze2.png">
@@ -39,7 +33,8 @@
     <img id="tile3" src="Gold2.png">
     <img id="tile4" src="Platina.png">
     <img id="tile5" src="Silver.png">
-    <img id="bg"    src="Background2.png">
+    <!-- GitHub repo has Ground2.png, not Background2.png -->
+    <img id="bg"    src="Ground2.png">
   </div>
 
   <script>
@@ -47,22 +42,20 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const scoreDisplay = document.getElementById("score");
-
     const COLS = 7, ROWS = 10, TILE = 64;
     let board = [], selected = null, score = 0;
 
-    // Берём ссылки на уже загруженные в DOM <img> по ID
+    // load preloaded imgs by ID
     const tileImages = [];
     for (let i = 0; i < 6; i++) {
       const img = document.getElementById(`tile${i}`);
-      if (!img.complete || img.naturalWidth === 0) {
-        console.error(`Tile ${i} failed to preload`);
-      }
+      if (!img.complete || img.naturalWidth === 0) console.error(`Tile ${i} failed to load`);
       tileImages.push(img);
     }
-    const bgImage = document.getElementById("bg");
+    const bgImage = document.getElementById('bg');
+    if (!bgImage.complete) console.error('Background failed to load');
 
-    // Инициализация доски
+    // init board
     function initBoard() {
       for (let y = 0; y < ROWS; y++) {
         board[y] = [];
@@ -73,16 +66,17 @@
       draw();
     }
 
-    // Рисуем фон + плитки + выбор
+    // draw scene
     function draw() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
           const idx = board[y][x];
           if (idx == null) continue;
           ctx.drawImage(tileImages[idx], x*TILE, y*TILE, TILE, TILE);
-          if (selected && selected.x===x && selected.y===y) {
-            ctx.strokeStyle = "#fff"; ctx.lineWidth = 4;
+          if (selected && selected.x === x && selected.y === y) {
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
             ctx.strokeRect(x*TILE, y*TILE, TILE, TILE);
           }
         }
@@ -90,8 +84,8 @@
       scoreDisplay.textContent = `Score: ${score}`;
     }
 
-    // Обработчик клика
-    canvas.addEventListener("click", e => {
+    // click handler
+    canvas.addEventListener('click', e => {
       const rect = canvas.getBoundingClientRect();
       const x = Math.floor((e.clientX-rect.left)/TILE);
       const y = Math.floor((e.clientY-rect.top)/TILE);
@@ -99,7 +93,6 @@
       if (selected) {
         const dx = Math.abs(selected.x-x), dy = Math.abs(selected.y-y);
         if (dx+dy===1) {
-          // меняем и проверяем матч
           swap(selected.x, selected.y, x, y);
           const m = findMatches();
           if (m.length) removeMatches(m);
@@ -115,22 +108,22 @@
     }
 
     function findMatches() {
-      const m = [];
-      // горизонтали
+      const set = new Set();
+      // horiz
       for (let y=0; y<ROWS; y++)
-        for (let x=0; x<COLS-2; x++)
-          if (board[y][x] != null &&
-              board[y][x]===board[y][x+1] &&
-              board[y][x]===board[y][x+2])
-            m.push([x,y],[x+1,y],[x+2,y]);
-      // вертикали
+        for (let x=0; x<COLS-2; x++) {
+          const t = board[y][x];
+          if (t!=null && t===board[y][x+1] && t===board[y][x+2])
+            [[x,y],[x+1,y],[x+2,y]].forEach(p=>set.add(JSON.stringify(p)));
+        }
+      // vert
       for (let x=0; x<COLS; x++)
-        for (let y=0; y<ROWS-2; y++)
-          if (board[y][x]!=null &&
-              board[y][x]===board[y+1][x] &&
-              board[y][x]===board[y+2][x])
-            m.push([x,y],[x,y+1],[x,y+2]);
-      return [...new Set(m.map(JSON.stringify))].map(JSON.parse);
+        for (let y=0; y<ROWS-2; y++) {
+          const t = board[y][x];
+          if (t!=null && t===board[y+1][x] && t===board[y+2][x])
+            [[x,y],[x,y+1],[x,y+2]].forEach(p=>set.add(JSON.stringify(p)));
+        }
+      return Array.from(set).map(JSON.parse);
     }
 
     function removeMatches(matches) {
@@ -138,9 +131,7 @@
         board[y][x] = null;
         score += 10;
       });
-      collapse();
-      refill();
-      draw();
+      collapse(); refill(); draw();
       setTimeout(() => {
         const nxt = findMatches();
         if (nxt.length) removeMatches(nxt);
@@ -148,8 +139,8 @@
     }
 
     function collapse() {
-      for (let x=0; x<COLS; x++){
-        let col = board.map(r=>r[x]).filter(v=>v!=null);
+      for (let x=0; x<COLS; x++) {
+        const col = board.map(r=>r[x]).filter(v=>v!=null);
         while (col.length<ROWS) col.unshift(Math.floor(Math.random()*tileImages.length));
         for (let y=0; y<ROWS; y++) board[y][x]=col[y];
       }
@@ -158,11 +149,10 @@
     function refill() {
       for (let y=0; y<ROWS; y++)
         for (let x=0; x<COLS; x++)
-          if (board[y][x]==null)
-            board[y][x]=Math.floor(Math.random()*tileImages.length);
+          if (board[y][x]== null) board[y][x]=Math.floor(Math.random()*tileImages.length);
     }
 
-    // стартуем
+    // start
     initBoard();
   });
   </script>
