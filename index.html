@@ -149,8 +149,11 @@
       if (isAnimating) return;
 
       const rect = canvas.getBoundingClientRect();
-      const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-      const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      const x = Math.floor((e.clientX - rect.left) * scaleX / TILE_SIZE);
+      const y = Math.floor((e.clientY - rect.top) * scaleY / TILE_SIZE);
 
       if (selectedTile) {
         if (Math.abs(selectedTile.x - x) + Math.abs(selectedTile.y - y) === 1) {
