@@ -54,21 +54,35 @@
 
     const background = new Image();
     background.src = "Background2.png";
+    let backgroundLoaded = false;
+    background.onload = () => {
+      backgroundLoaded = true;
+      checkAllAssetsLoaded();
+    };
 
-    // Загрузка всех фишек
     let loaded = 0;
+    let assetsReady = false;
+
     tileSrc.forEach((src, i) => {
       const img = new Image();
       img.src = src;
       img.onload = () => {
         loaded++;
-        if (loaded === tileSrc.length) {
-          initBoard();
-          draw();
-        }
+        checkAllAssetsLoaded();
+      };
+      img.onerror = () => {
+        console.error(`Failed to load image: ${src}`);
       };
       tileImages.push(img);
     });
+
+    function checkAllAssetsLoaded() {
+      if (loaded === tileSrc.length && backgroundLoaded) {
+        assetsReady = true;
+        initBoard();
+        draw();
+      }
+    }
 
     function initBoard() {
       for (let y = 0; y < ROWS; y++) {
@@ -80,12 +94,16 @@
     }
 
     function draw() {
+      if (!assetsReady) return;
       ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
-          const img = tileImages[board[y][x]];
-          ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          const tileIndex = board[y][x];
+          const tile = tileImages[tileIndex];
+          if (tile && tile.complete && tile.naturalWidth !== 0) {
+            ctx.drawImage(tile, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
 
           if (selectedTile && selectedTile.x === x && selectedTile.y === y) {
             ctx.strokeStyle = "white";
@@ -99,6 +117,7 @@
     }
 
     canvas.addEventListener("click", (e) => {
+      if (!assetsReady) return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
@@ -128,19 +147,22 @@
       const matches = findMatches();
       if (matches.length > 0) {
         removeMatches(matches);
+      } else {
+        const tempBack = board[y1][x1];
+        board[y1][x1] = board[y2][x2];
+        board[y2][x2] = tempBack;
       }
     }
 
     function findMatches() {
       const matches = [];
 
-      // Горизонтальные
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS - 2; x++) {
           const a = board[y][x];
           const b = board[y][x + 1];
           const c = board[y][x + 2];
-          if (a === b && b === c) {
+          if (a != null && a === b && b === c) {
             matches.push({ x, y });
             matches.push({ x: x + 1, y });
             matches.push({ x: x + 2, y });
@@ -148,13 +170,12 @@
         }
       }
 
-      // Вертикальные
       for (let x = 0; x < COLS; x++) {
         for (let y = 0; y < ROWS - 2; y++) {
           const a = board[y][x];
           const b = board[y + 1][x];
           const c = board[y + 2][x];
-          if (a === b && b === c) {
+          if (a != null && a === b && b === c) {
             matches.push({ x, y });
             matches.push({ x, y: y + 1 });
             matches.push({ x, y: y + 2 });
@@ -167,15 +188,14 @@
 
     function removeMatches(matches) {
       matches.forEach(({ x, y }) => {
-        board[y][x] = null;
+        if (board[y]) board[y][x] = null;
         score += 10;
       });
 
-      // Опустить оставшиеся
       for (let x = 0; x < COLS; x++) {
         let column = [];
         for (let y = 0; y < ROWS; y++) {
-          if (board[y][x] !== null) {
+          if (board[y][x] !== null && board[y][x] !== undefined) {
             column.push(board[y][x]);
           }
         }
@@ -189,7 +209,6 @@
 
       draw();
 
-      // Повторное удаление, если снова есть совпадения
       setTimeout(() => {
         const nextMatches = findMatches();
         if (nextMatches.length > 0) {
