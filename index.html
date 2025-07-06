@@ -105,15 +105,18 @@
     for (let i=0; i<6; i++) tileImages.push(document.getElementById(`tile${i}`));
     const bgImage = document.getElementById("bg");
 
+    // Генерация доски без начальных матчей
     function initBoard(){
       score = 0; moves = 20; goalCount = 0;
-      board = [];
-      for(let y=0; y<ROWS; y++){
-        board[y]=[];
-        for(let x=0; x<COLS; x++){
-          board[y][x] = Math.floor(Math.random()*tileImages.length);
+      do {
+        board = [];
+        for(let y=0; y<ROWS; y++){
+          board[y]=[];
+          for(let x=0; x<COLS; x++){
+            board[y][x] = Math.floor(Math.random()*tileImages.length);
+          }
         }
-      }
+      } while(findMatches().length > 0);
       updateHUD(); draw();
     }
 
@@ -168,13 +171,15 @@
       const set=new Set();
       for(let y=0;y<ROWS;y++) for(let x=0;x<COLS-2;x++){
         const t=board[y][x];
-        if(t!=null && t===board[y][x+1] && t===board[y][x+2])
+        if(t!=null && t===board[y][x+1] && t===board[y][x+2]){
           [[x,y],[x+1,y],[x+2,y]].forEach(p=>set.add(JSON.stringify(p)));
+        }
       }
       for(let x=0;x<COLS;x++) for(let y=0;y<ROWS-2;y++){
         const t=board[y][x];
-        if(t!=null && t===board[y+1][x] && t===board[y+2][x])
+        if(t!=null && t===board[y+1][x] && t===board[y+2][x]){
           [[x,y],[x,y+1],[x,y+2]].forEach(p=>set.add(JSON.stringify(p)));
+        }
       }
       return Array.from(set).map(JSON.parse);
     }
@@ -210,13 +215,10 @@
     }
 
     function showEnd(text){
-      // оверлей
       const overlay=document.createElement("div");
-      Object.assign(overlay.style,{
-        position:'fixed',inset:'0',display:'flex',
+      Object.assign(overlay.style,{position:'fixed',inset:'0',display:'flex',
         'justify-content':'center','align-items':'center',
-        background:'rgba(0,0,0,0.8)',zIndex:200
-      });
+        background:'rgba(0,0,0,0.8)',zIndex:200});
       overlay.innerHTML=`
         <div style="background:#000a;padding:30px;border-radius:8px;text-align:center;">
           <h2 style="color:#fff;margin-bottom:20px;">${text}</h2>
