@@ -9,13 +9,13 @@
         margin: 0;
         background: #000;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         align-items: center;
-        height: 100vh;
+        min-height: 100dvh;
         color: #fff;
         font-family: sans-serif;
-        overflow: hidden;
-        padding-bottom: 80px; /* фикс нижнего ряда */
+        overflow-x: hidden;
+        padding-bottom: 80px;
       }
       #menu {
         position: fixed;
@@ -41,7 +41,7 @@
         cursor: pointer;
       }
       #hud {
-        position: absolute;
+        position: fixed;
         top: 10px;
         left: 50%;
         transform: translateX(-50%);
@@ -52,33 +52,33 @@
         padding: 0 10px;
         box-sizing: border-box;
         width: calc(64px * 7 + 8px * 2);
+        pointer-events: none;
       }
       #hud > div {
         margin: 0 8px;
         white-space: nowrap;
+        pointer-events: auto;
       }
       canvas {
         border: 4px solid #fff;
-        margin-top: 50px;
+        margin-top: 80px;
+        margin-bottom: 40px;
         box-sizing: border-box;
         width: 448px;
         height: 640px;
+        max-width: 100%;
         touch-action: none;
       }
       @media (max-width: 600px) {
         canvas {
           width: calc(100vw - 20px);
           height: calc((100vw - 20px) * (640 / 448));
-          margin-top: 60px;
-          margin-bottom: 10px;
         }
         #hud {
-          top: 10px;
           flex-wrap: wrap;
-          justify-content: center;
+          font-size: 14px;
           width: 100%;
           padding: 0;
-          font-size: 14px;
         }
         #hud > div {
           margin: 4px 6px;
@@ -87,7 +87,6 @@
     </style>
   </head>
   <body>
-    <!-- Меню -->
     <div id="menu">
       <div style="text-align: center">
         <h1>Match-3 Game</h1>
@@ -95,17 +94,14 @@
       </div>
     </div>
 
-    <!-- HUD -->
     <div id="hud" style="display: none">
       <div id="score">Счёт: 0</div>
       <div id="moves">Ходов: 20</div>
       <div id="goal">Gold2: 0/15</div>
     </div>
 
-    <!-- Игровое поле -->
     <canvas id="gameCanvas" width="448" height="640"></canvas>
 
-    <!-- Предзагрузка ресурсов -->
     <div id="preloadImgs" style="display: none">
       <img id="tile0" src="Bronze.png" />
       <img id="tile1" src="Bronze2.png" />
@@ -122,7 +118,6 @@
       <img id="bg" src="Background2.png" />
     </div>
 
-    <!-- Логика -->
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         const menu = document.getElementById("menu");
@@ -191,6 +186,7 @@
           const clientY = e.touches ? e.touches[0].clientY : e.clientY;
           const x = Math.floor((clientX - rect.left) / TILE);
           const y = Math.floor((clientY - rect.top) / TILE);
+          if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return { x: -1, y: -1 };
           return { x, y };
         }
 
@@ -198,7 +194,7 @@
           e.preventDefault();
           if (moves <= 0) return;
           const { x, y } = getTileFromEvent(e);
-          if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+          if (x === -1 || y === -1) return;
 
           if (selected) {
             const dx = Math.abs(selected.x - x),
