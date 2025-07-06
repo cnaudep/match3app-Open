@@ -31,6 +31,17 @@ function startGame() {
   hud.style.display = "flex";
   leaderboardEl.style.display = "block";
   initBoard();
+
+  // Загружаем таблицу лидеров с сервера
+  fetch("https://cnaudep.pythonanywhere.com/leaderboard")
+    .then(res => res.json())
+    .then(data => {
+      leaderboard = data;
+      renderLeaderboard();
+    })
+    .catch(err => {
+      console.error("Ошибка загрузки таблицы рекордов:", err);
+    });
 }
 
 function initBoard() {
@@ -204,12 +215,22 @@ function showEnd(text) {
   document.getElementById("restartBtn").onclick = () => {
     if (isWin) {
       const name = document.getElementById("playerName").value || "Игрок";
-      leaderboard.push({ name, moves });
-      leaderboard.sort((a, b) => b.moves - a.moves); // Больше ходов — выше
-      leaderboard = leaderboard.slice(0, 5);
+
+      fetch("https://cnaudep.pythonanywhere.com/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, moves })
+      })
+        .then(res => res.json())
+        .then(data => {
+          leaderboard = data.leaderboard;
+          renderLeaderboard();
+        })
+        .catch(err => {
+          console.error("Ошибка отправки рекорда:", err);
+        });
     }
 
-    renderLeaderboard();
     overlay.remove();
     initBoard();
   };
@@ -217,7 +238,7 @@ function showEnd(text) {
 
 function renderLeaderboard() {
   leaderboardEl.innerHTML = `<strong>Топ 5 (больше ходов):</strong><br>` +
-    leaderboard.map((e, i) => `${i+1}. ${e.name} — ${e.moves} ходов`).join("<br>");
+    leaderboard.map((e, i) => `${i + 1}. ${e.name} — ${e.moves} ходов`).join("<br>");
 }
 
 // Кнопки в меню
