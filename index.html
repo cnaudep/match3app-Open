@@ -52,6 +52,7 @@
         z-index: 50;
         padding: 0 10px;
         box-sizing: border-box;
+        width: calc(64px * 7 + 8px * 2);
       }
       #hud > div {
         margin: 0 8px;
@@ -70,23 +71,22 @@
         canvas {
           width: calc(100vw - 20px);
           height: calc((100vw - 20px) * (640 / 448));
-          margin-top: 10px;
+          margin-top: 60px;
           margin-bottom: 10px;
         }
         #hud {
-          position: relative;
-          top: auto;
-          left: auto;
-          transform: none;
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
           flex-wrap: wrap;
           justify-content: center;
-          margin: 5px auto 0;
-          width: auto;
-          padding: 0 5px;
+          width: 100%;
+          padding: 0;
           font-size: 14px;
         }
         #hud > div {
-          margin: 0 4px;
+          margin: 4px 6px;
         }
       }
     </style>
@@ -111,21 +111,21 @@
 
     <!-- Предзагрузка картинок -->
     <div id="preloadImgs" style="display: none">
-      <img id="tile0" src="Bronze.png" />
-      <img id="tile1" src="Bronze2.png" />
-      <img id="tile2" src="Gold.png" />
-      <img id="tile3" src="Gold2.png" />
-      <img id="tile4" src="Platina.png" />
-      <img id="tile5" src="Silver.png" />
+      <img id="tile0"     src="Bronze.png" />
+      <img id="tile1"     src="Bronze2.png" />
+      <img id="tile2"     src="Gold.png" />
+      <img id="tile3"     src="Gold2.png" />
+      <img id="tile4"     src="Platina.png" />
+      <img id="tile5"     src="Silver.png" />
       <!-- состояния выделения -->
-      <img id="pick0"  src="Bronze_pick.png" />
-      <img id="pick1"  src="Bronze2_pick.png" />
-      <img id="pick2"  src="Gold_pick.png" />
-      <img id="pick3"  src="Gold2_pick.png" />
-      <img id="pick4"  src="Platina_pick.png" />
-      <img id="pick5"  src="Silver_pick.png" />
+      <img id="pick0"     src="Bronze_pick.png" />
+      <img id="pick1"     src="Bronze2_pick.png" />
+      <img id="pick2"     src="Gold_pick.png" />
+      <img id="pick3"     src="Gold2_pick.png" />
+      <img id="pick4"     src="Platina_pick.png" />
+      <img id="pick5"     src="Silver_pick.png" />
       <!-- фон -->
-      <img id="bg"     src="Background2.png" />
+      <img id="bg"        src="Background2.png" />
     </div>
 
     <script>
@@ -163,8 +163,8 @@
         function initBoard() {
           score = 0; moves = 20; goalCount = 0;
           do {
-            board = Array.from({length: ROWS}, () =>
-              Array.from({length: COLS}, () =>
+            board = Array.from({ length: ROWS }, () =>
+              Array.from({ length: COLS }, () =>
                 Math.floor(Math.random() * tileImages.length)
               )
             );
@@ -180,16 +180,16 @@
         }
 
         function draw() {
-          ctx.clearRect(0,0,canvas.width,canvas.height);
-          ctx.drawImage(bgImage, 0,0,canvas.width,canvas.height);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
           for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
               const idx = board[y][x];
               if (idx == null) continue;
-              const img = (selected && selected.x===x && selected.y===y)
+              const img = (selected && selected.x === x && selected.y === y)
                 ? pickImages[idx]
                 : tileImages[idx];
-              ctx.drawImage(img, x*TILE, y*TILE, TILE, TILE);
+              ctx.drawImage(img, x * TILE, y * TILE, TILE, TILE);
             }
           }
         }
@@ -197,28 +197,28 @@
         canvas.addEventListener("click", e => {
           if (moves <= 0) return;
           const rect = canvas.getBoundingClientRect();
-          const x = Math.floor((e.clientX - rect.left)/TILE);
-          const y = Math.floor((e.clientY - rect.top)/TILE);
-          if (x<0||x>=COLS||y<0||y>=ROWS) return;
+          const x = Math.floor((e.clientX - rect.left) / TILE);
+          const y = Math.floor((e.clientY - rect.top) / TILE);
+          if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
 
           if (selected) {
             const dx = Math.abs(selected.x - x),
                   dy = Math.abs(selected.y - y);
-            if (dx+dy===1) {
-              swap(selected.x,selected.y,x,y);
+            if (dx + dy === 1) {
+              swap(selected.x, selected.y, x, y);
               const m = findMatches();
               if (m.length) {
                 moves--;
                 processMatches(m);
               } else {
-                swap(selected.x,selected.y,x,y);
+                swap(selected.x, selected.y, x, y);
               }
               selected = null;
             } else {
-              selected = {x,y};
+              selected = { x, y };
             }
           } else {
-            selected = {x,y};
+            selected = { x, y };
           }
 
           updateHUD();
@@ -226,7 +226,7 @@
           checkEnd();
         });
 
-        function swap(x1,y1,x2,y2) {
+        function swap(x1, y1, x2, y2) {
           [board[y1][x1], board[y2][x2]] =
           [board[y2][x2], board[y1][x1]];
         }
@@ -234,22 +234,22 @@
         function findMatches() {
           const set = new Set();
           // горизонтали
-          for (let y=0; y<ROWS; y++) {
-            for (let x=0; x<COLS-2; x++) {
+          for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS - 2; x++) {
               const t = board[y][x];
-              if (t!=null && t===board[y][x+1] && t===board[y][x+2]) {
-                [[x,y],[x+1,y],[x+2,y]]
-                  .forEach(p=>set.add(JSON.stringify(p)));
+              if (t != null && t === board[y][x + 1] && t === board[y][x + 2]) {
+                [[x, y], [x + 1, y], [x + 2, y]]
+                  .forEach(p => set.add(JSON.stringify(p)));
               }
             }
           }
           // вертикали
-          for (let x=0; x<COLS; x++) {
-            for (let y=0; y<ROWS-2; y++) {
+          for (let x = 0; x < COLS; x++) {
+            for (let y = 0; y < ROWS - 2; y++) {
               const t = board[y][x];
-              if (t!=null && t===board[y+1][x] && t===board[y+2][x]) {
-                [[x,y],[x,y+1],[x,y+2]]
-                  .forEach(p=>set.add(JSON.stringify(p)));
+              if (t != null && t === board[y + 1][x] && t === board[y + 2][x]) {
+                [[x, y], [x, y + 1], [x, y + 2]]
+                  .forEach(p => set.add(JSON.stringify(p)));
               }
             }
           }
@@ -257,8 +257,8 @@
         }
 
         function processMatches(matches) {
-          matches.forEach(([x,y])=>{
-            if (board[y][x]===3) goalCount++;
+          matches.forEach(([x, y]) => {
+            if (board[y][x] === 3) goalCount++;
             board[y][x] = null;
             score += 10;
           });
@@ -266,37 +266,37 @@
           refill();
           updateHUD();
           draw();
-          setTimeout(()=>{
+          setTimeout(() => {
             const nxt = findMatches();
             if (nxt.length) processMatches(nxt);
-          },200);
+          }, 200);
         }
 
         function collapse() {
-          for (let x=0; x<COLS; x++) {
-            const col = board.map(r=>r[x]).filter(v=>v!=null);
-            while (col.length<ROWS) {
-              col.unshift(Math.floor(Math.random()*tileImages.length));
+          for (let x = 0; x < COLS; x++) {
+            const col = board.map(r => r[x]).filter(v => v != null);
+            while (col.length < ROWS) {
+              col.unshift(Math.floor(Math.random() * tileImages.length));
             }
-            for (let y=0; y<ROWS; y++) {
+            for (let y = 0; y < ROWS; y++) {
               board[y][x] = col[y];
             }
           }
         }
 
         function refill() {
-          for (let y=0; y<ROWS; y++) {
-            for (let x=0; x<COLS; x++) {
-              if (board[y][x]==null) {
-                board[y][x] = Math.floor(Math.random()*tileImages.length);
+          for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+              if (board[y][x] == null) {
+                board[y][x] = Math.floor(Math.random() * tileImages.length);
               }
             }
           }
         }
 
         function checkEnd() {
-          if (goalCount>=GOAL) showEnd("Победа!");
-          else if (moves<=0) showEnd("Игра окончена");
+          if (goalCount >= GOAL) showEnd("Победа!");
+          else if (moves <= 0) showEnd("Игра окончена");
         }
 
         function showEnd(text) {
@@ -308,31 +308,12 @@
             background: "rgba(0,0,0,0.8)", zIndex: 200
           });
           overlay.innerHTML = `
-            <div style="
-              background:#000a;
-              padding:30px;
-              border-radius:8px;
-              text-align:center;
-            ">
-              <h2 style="color:#fff;margin-bottom:20px;">
-                ${text}
-              </h2>
-              <button id="restartBtn" style="
-                font-size:18px;
-                padding:10px 20px;
-                border:none;
-                border-radius:4px;
-                background:#fff;
-                color:#000;
-                cursor:pointer;
-              ">Начать заново</button>
+            <div style="background:#000a;padding:30px;border-radius:8px;text-align:center;">
+              <h2 style="color:#fff;margin-bottom:20px;">${text}</h2>
+              <button id="restartBtn" style="font-size:18px;padding:10px 20px;border:none;border-radius:4px;background:#fff;color:#000;cursor:pointer;">Начать заново</button>
             </div>`;
           document.body.appendChild(overlay);
-          document.getElementById("restartBtn")
-            .onclick = ()=> {
-              overlay.remove();
-              initBoard();
-            };
+          document.getElementById("restartBtn").onclick = () => { overlay.remove(); initBoard(); };
         }
       });
     </script>
