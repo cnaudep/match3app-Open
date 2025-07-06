@@ -60,16 +60,30 @@
         white-space: nowrap;
       }
 
-      /* Адаптив для мобильных */
+      /* Для экранов уже 480px */
       @media (max-width: 480px) {
         #hud {
-          flex-direction: column;
-          align-items: flex-start;
-          top: 5px;
+          position: relative; /* отменяем fixed/absolute */
+          top: auto;
+          left: auto;
+          transform: none;
+          flex-direction: row; /* возвращаем строку */
+          flex-wrap: wrap; /* разрешаем перенос */
+          justify-content: center; /* центрируем по горизонтали */
+          margin: 5px auto 10px; /* отступ снизу перед канвасом */
+          width: auto; /* пусть сам подстраивается */
+          padding: 0 10px;
         }
         #hud > div {
-          margin: 4px 0;
-          font-size: 14px;
+          margin: 0 8px; /* горизонтальные отступы */
+          white-space: nowrap;
+          font-size: 14px; /* чуть помельче шрифт */
+        }
+        canvas {
+          margin-top: 0; /* убираем ненужный верхний отступ */
+          /* по желанию можно чуть увеличить нижний:
+       margin-bottom: 10px;
+    */
         }
       }
     </style>
