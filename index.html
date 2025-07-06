@@ -2,35 +2,77 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <title>Match-3 Game</title>
   <style>
-    body { margin:0; background:#000; display:flex; justify-content:center; align-items:center; height:100vh; color:#fff; font-family:sans-serif; overflow:hidden; }
-    #container { position:relative; }
-    #menu, #endScreen { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; flex-direction:column; z-index:10; }
-    #menu button, #endScreen button { font-size:4vw; padding:2vw 4vw; margin-top:2vh; cursor:pointer; border:none; border-radius:1vw; background:#fff; color:#000; }
-    #hud { position:absolute; top:1vh; left:50%; transform:translateX(-50%); display:flex; gap:5vw; font-size:4vw; z-index:5; }
-    canvas { display:block; }
-    #preloadImgs { display:none; }
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #fff;
+      font-family: sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* --- Меню (одноразовое) --- */
+    #menu {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      padding: 40px;
+      border-radius: 8px;
+      text-align: center;
+      z-index: 100;
+    }
+    #menu h1 {
+      margin: 0 0 20px;
+      font-size: 32px;
+    }
+    #menu button {
+      font-size: 18px;
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background: #fff;
+      color: #000;
+    }
+    /* --- HUD (шапка над полем) --- */
+    #hud {
+      width: calc(64px * 7 + 8px*2);
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+      font-size: 18px;
+    }
+    canvas {
+      border: 4px solid #fff;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
-  <div id="container">
-    <div id="menu">
-      <h1 style="font-size:6vw; margin:0;">Match-3 Game</h1>
-      <button id="startBtn">Старт уровня</button>
-    </div>
-    <div id="endScreen" style="display:none;">
-      <h2 id="endMessage" style="font-size:6vw;">Игра окончена</h2>
-      <div id="finalScore" style="font-size:5vw; margin-top:2vh;">Ваш счёт: 0</div>
-      <button id="restartBtn">Начать заново</button>
-    </div>
-    <div id="hud" style="display:none;"></div>
-    <canvas id="gameCanvas"></canvas>
+  <!-- Главное меню -->
+  <div id="menu">
+    <h1>Match-3 Game</h1>
+    <button id="startBtn">Старт</button>
   </div>
 
-  <!-- Preload images -->
-  <div id="preloadImgs">
+  <!-- HUD: счёт, ходы, цель -->
+  <div id="hud" style="display:none;">
+    <div id="score">Счёт: 0</div>
+    <div id="moves">Ходов: 20</div>
+    <div id="goal">Gold2: 0/15</div>
+  </div>
+
+  <canvas id="gameCanvas" width="448" height="640"></canvas>
+
+  <!-- Предзагруженные картинки -->
+  <div id="preloadImgs" style="display:none;">
     <img id="tile0" src="Bronze.png">
     <img id="tile1" src="Bronze2.png">
     <img id="tile2" src="Gold.png">
@@ -41,90 +83,199 @@
   </div>
 
   <script>
-  document.addEventListener("DOMContentLoaded",()=>{
-    const menu       = document.getElementById('menu');
-    const startBtn   = document.getElementById('startBtn');
-    const endScreen  = document.getElementById('endScreen');
-    const restartBtn = document.getElementById('restartBtn');
-    const endMessage = document.getElementById('endMessage');
-    const finalScore = document.getElementById('finalScore');
-    const hud        = document.getElementById('hud');
-    const canvas     = document.getElementById('gameCanvas');
-    const ctx        = canvas.getContext('2d');
+  document.addEventListener("DOMContentLoaded", ()=> {
+    const menu     = document.getElementById("menu");
+    const startBtn = document.getElementById("startBtn");
+    const hud      = document.getElementById("hud");
+    const scoreEl  = document.getElementById("score");
+    const movesEl  = document.getElementById("moves");
+    const goalEl   = document.getElementById("goal");
+    const canvas   = document.getElementById("gameCanvas");
+    const ctx      = canvas.getContext("2d");
 
-    const COLS=7, ROWS=10;
-    let board, selected, score, moves, collected, target=15;
-    let TILE, canvasWidth, canvasHeight;
+    const COLS = 7, ROWS = 10, TILE = 64;
+    let board = [], selected = null;
+    let score = 0, moves = 20, goalCount = 0, GOAL = 15;
 
+    // собрать массив картинок из DOM
     const tileImages = [];
-    for(let i=0;i<6;i++) tileImages.push(document.getElementById('tile'+i));
-    const bgImage=document.getElementById('bg');
+    for (let i=0; i<6; i++) {
+      tileImages.push(document.getElementById(`tile${i}`));
+    }
+    const bgImage = document.getElementById("bg");
 
-    function resizeCanvas(){
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      TILE = Math.floor(Math.min(vw/10, vh/12));
-      canvasWidth = TILE*COLS;
-      canvasHeight= TILE*ROWS;
-      canvas.width = canvasWidth;
-      canvas.height= canvasHeight;
-      document.getElementById('container').style.width= canvasWidth+'px';
-      document.getElementById('container').style.height= canvasHeight+'px';
+    function initBoard(){
+      score = 0;
+      moves = 20;
+      goalCount = 0;
+      // создаём доску
+      board = [];
+      for(let y=0; y<ROWS; y++){
+        board[y]=[];
+        for(let x=0; x<COLS; x++){
+          board[y][x] = Math.floor(Math.random()*tileImages.length);
+        }
+      }
       updateHUD();
-      if(board) draw();
+      draw();
     }
 
     function updateHUD(){
-      hud.innerHTML = `<div>Счёт: ${score}</div><div>Ходов: ${moves}</div><div>Gold2: ${collected}/${target}</div>`;
-    }
-
-    function initLevel(){
-      board=[]; selected=null;
-      score=0; moves=20; collected=0;
-      updateHUD();
-      for(let y=0;y<ROWS;y++){board[y]=[];for(let x=0;x<COLS;x++){board[y][x]=Math.floor(Math.random()*tileImages.length);}}
-      draw();
-      hud.style.display='flex'; menu.style.display='none'; endScreen.style.display='none';
+      scoreEl.textContent = `Счёт: ${score}`;
+      movesEl.textContent = `Ходов: ${moves}`;
+      goalEl.textContent  = `Gold2: ${goalCount}/${GOAL}`;
     }
 
     function draw(){
-      ctx.clearRect(0,0,canvasWidth,canvasHeight);
-      ctx.drawImage(bgImage,0,0,canvasWidth,canvasHeight);
-      for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-        const idx=board[y][x]; if(idx==null)continue;
-        ctx.drawImage(tileImages[idx],x*TILE,y*TILE,TILE,TILE);
-        if(selected&&selected.x===x&&selected.y===y){ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.strokeRect(x*TILE,y*TILE,TILE,TILE);} }
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
+      for(let y=0; y<ROWS; y++){
+        for(let x=0; x<COLS; x++){
+          const idx = board[y][x];
+          if(idx==null) continue;
+          ctx.drawImage(tileImages[idx], x*TILE, y*TILE, TILE, TILE);
+          if(selected && selected.x===x && selected.y===y){
+            ctx.strokeStyle="#fff"; ctx.lineWidth=4;
+            ctx.strokeRect(x*TILE, y*TILE, TILE, TILE);
+          }
+        }
+      }
     }
 
-    canvas.addEventListener('click',e=>{
-      if(moves<=0) return;
-      const rect=canvas.getBoundingClientRect();
-      const x=Math.floor((e.clientX-rect.left)/TILE),y=Math.floor((e.clientY-rect.top)/TILE);
-      if(x<0||x>=COLS||y<0||y>=ROWS)return;
-      if(selected){const dx=Math.abs(selected.x-x),dy=Math.abs(selected.y-y);
-        if(dx+dy===1){swap(selected.x,selected.y,x,y);const m=findMatches();
-          if(m.length){removeMatches(m);moves--;}
-          else swap(selected.x,selected.y,x,y);
-          selected=null;updateHUD();checkEnd();
-        }else selected={x,y};
-      }else selected={x,y};draw();
+    canvas.addEventListener("click", e=>{
+      if(moves<=0) return; // ходов нет
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX-rect.left)/TILE);
+      const y = Math.floor((e.clientY-rect.top)/TILE);
+      if(x<0||x>=COLS||y<0||y>=ROWS) return;
+
+      if(selected){
+        const dx = Math.abs(selected.x-x), dy = Math.abs(selected.y-y);
+        if(dx+dy===1){
+          swap(selected.x,selected.y,x,y);
+          const m = findMatches();
+          if(m.length){
+            // успешный ход
+            moves--;
+            processMatches(m);
+          } else {
+            // отменяем неудачный ход
+            swap(selected.x,selected.y,x,y);
+          }
+          selected=null;
+        }else{
+          selected={x,y};
+        }
+      } else {
+        selected={x,y};
+      }
+      updateHUD();
+      draw();
+      checkEnd();
     });
 
-    function swap(x1,y1,x2,y2){[board[y1][x1],board[y2][x2]]=[board[y2][x2],board[y1][x1]];}
-    function findMatches(){const s=new Set();for(let y=0;y<ROWS;y++)for(let x=0;x<COLS-2;x++){const t=board[y][x];if(t!=null&&t===board[y][x+1]&&t===board[y][x+2])[[x,y],[x+1,y],[x+2,y]].forEach(p=>s.add(JSON.stringify(p)));}
-      for(let x=0;x<COLS;x++)for(let y=0;y<ROWS-2;y++){const t=board[y][x];if(t!=null&&t===board[y+1][x]&&t===board[y+2][x])[[x,y],[x,y+1],[x,y+2]].forEach(p=>s.add(JSON.stringify(p)));}
-      return Array.from(s).map(JSON.parse);
+    function swap(x1,y1,x2,y2){
+      [board[y1][x1], board[y2][x2]] = [board[y2][x2], board[y1][x1]];
     }
-    function removeMatches(m){m.forEach(([x,y])=>{if(board[y][x]===3)collected++;board[y][x]=null;score+=10;});collapse();refill();updateHUD();draw();setTimeout(()=>{const nm=findMatches();if(nm.length)removeMatches(nm);},200);}    
-    function collapse(){for(let x=0;x<COLS;x++){const col=board.map(r=>r[x]).filter(v=>v!=null);while(col.length<ROWS)col.unshift(Math.floor(Math.random()*tileImages.length));col.forEach((v,y)=>board[y][x]=v);} }
-    function refill(){for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(board[y][x]==null)board[y][x]=Math.floor(Math.random()*tileImages.length);}    
-    function checkEnd(){if(collected>=target){endMessage.textContent='Уровень пройден';finalScore.textContent=`Ваш счёт: ${score}`;endScreen.style.display='flex';}
-      else if(moves<=0){endMessage.textContent='Игра окончена';finalScore.textContent=`Ваш счёт: ${score}`;endScreen.style.display='flex';}}
 
-    startBtn.addEventListener('click',initLevel);
-    restartBtn.addEventListener('click',()=>{initLevel();});
-    window.addEventListener('resize',resizeCanvas);
-    resizeCanvas();
+    function findMatches(){
+      const set=new Set();
+      // гориз.
+      for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS-2;x++){
+          const t=board[y][x];
+          if(t!=null && t===board[y][x+1] && t===board[y][x+2]){
+            [[x,y],[x+1,y],[x+2,y]].forEach(p=>set.add(JSON.stringify(p)));
+          }
+        }
+      }
+      // верт.
+      for(let x=0;x<COLS;x++){
+        for(let y=0;y<ROWS-2;y++){
+          const t=board[y][x];
+          if(t!=null && t===board[y+1][x] && t===board[y+2][x]){
+            [[x,y],[x,y+1],[x,y+2]].forEach(p=>set.add(JSON.stringify(p)));
+          }
+        }
+      }
+      return Array.from(set).map(JSON.parse);
+    }
+
+    function processMatches(matches){
+      // удаляем и считаем Gold2
+      matches.forEach(([x,y])=>{
+        if(board[y][x]===3) goalCount++; // костюм Gold2 имеет индекс 3
+        board[y][x]=null;
+        score+=10;
+      });
+      collapse(); refill(); updateHUD(); draw();
+      // рекурсивно обрабатываем новые совпадения
+      setTimeout(()=>{
+        const nxt=findMatches();
+        if(nxt.length) processMatches(nxt);
+      },200);
+    }
+
+    function collapse(){
+      for(let x=0;x<COLS;x++){
+        const col=board.map(r=>r[x]).filter(v=>v!=null);
+        while(col.length<ROWS){
+          col.unshift(Math.floor(Math.random()*tileImages.length));
+        }
+        for(let y=0;y<ROWS;y++) board[y][x]=col[y];
+      }
+    }
+
+    function refill(){
+      for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS;x++){
+          if(board[y][x]==null){
+            board[y][x]=Math.floor(Math.random()*tileImages.length);
+          }
+        }
+      }
+    }
+
+    function checkEnd(){
+      if(goalCount>=GOAL){
+        showEnd("Победа!");
+      } else if(moves<=0){
+        showEnd("Игра окончена");
+      }
+    }
+
+    function showEnd(text){
+      // создаём оверлей
+      const overlay = document.createElement("div");
+      overlay.style = `
+        position:absolute; top:50%; left:50%;
+        transform:translate(-50%,-50%);
+        background:rgba(0,0,0,0.9); padding:30px;
+        text-align:center; border-radius:8px; z-index:200;
+      `;
+      overlay.innerHTML = `
+        <h2 style="color:#fff;margin-bottom:20px;">${text}</h2>
+        <button id="restartBtn" style="
+          font-size:18px;padding:10px 20px;
+          border:none;border-radius:4px;
+          background:#fff;color:#000;cursor:pointer;
+        ">Начать заново</button>
+      `;
+      document.body.appendChild(overlay);
+
+      document.getElementById("restartBtn")
+        .addEventListener("click", ()=>{
+          overlay.remove();
+          initBoard();
+        });
+    }
+
+    // по кнопке Старт
+    startBtn.addEventListener("click", ()=>{
+      menu.remove();
+      hud.style.display = "flex";
+      initBoard();
+    });
   });
   </script>
 </body>
