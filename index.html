@@ -61,6 +61,8 @@
     #hud > div {
       margin: 4px 8px;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
     }
 
     canvas {
@@ -93,7 +95,10 @@
   <div id="hud" style="display: none">
     <div id="score">Счёт: 0</div>
     <div id="moves">Ходов: 20</div>
-    <div id="goal">Gold2: 0/15</div>
+    <div id="goal">
+      <img src="Gold2.png" alt="Цель" style="width: 24px; height: 24px; vertical-align: middle; margin-right: 6px;" />
+      <span id="goalCount">0/15</span>
+    </div>
   </div>
 
   <canvas id="gameCanvas"></canvas>
@@ -124,7 +129,6 @@
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
 
-      // авторазмер под экран
       const safeHeight = Math.min(window.innerHeight - 120, 640);
       const safeWidth = Math.min(window.innerWidth - 20, 448);
       canvas.width = safeWidth;
@@ -137,6 +141,7 @@
       const scoreEl  = document.getElementById("score");
       const movesEl  = document.getElementById("moves");
       const goalEl   = document.getElementById("goal");
+      const goalCountEl = document.getElementById("goalCount");
 
       const tileImages = [], pickImages = [];
       for (let i = 0; i < 6; i++) {
@@ -167,7 +172,7 @@
       function updateHUD() {
         scoreEl.textContent = `Счёт: ${score}`;
         movesEl.textContent = `Ходов: ${moves}`;
-        goalEl.textContent = `Gold2: ${goalCount}/${GOAL}`;
+        goalCountEl.textContent = `${goalCount}/${GOAL}`;
       }
 
       function draw() {
